@@ -93,6 +93,8 @@ export const getPlayerStats = async (req: Request, res: Response) => {
 
     let userProfile = await Profile.findOne({ userId: userId });
 
+    if (!userProfile) return res.status(404).json({ msg: "User not found" });
+
     return res.status(200).json(userProfile);
   } catch (error) {
     console.log(error);
@@ -102,8 +104,9 @@ export const getPlayerStats = async (req: Request, res: Response) => {
 
 export const getLeaderBoard = async (req: Request, res: Response) => {
   try {
-    let leaderboards = Profile.find().limit(10);
-    return res.status(200).json({ leaderboards });
+    let leaderboards = await Profile.find().limit(10);
+
+    return res.status(200).json({ leaderboards: leaderboards });
   } catch (error) {
     console.log(error);
     return res.status(500).json({ msg: "Internal server error" });

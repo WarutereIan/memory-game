@@ -1,13 +1,7 @@
-import { Server } from "socket.io";
-
+import { Server, Socket } from "socket.io";
 import { RedisClient } from "./db";
-import { randomUUID } from "crypto";
-import Redis from "ioredis";
-import { getRoomDetails } from "../utils/getRoomDetails";
 
-export const SocketServer = new Server({
-  path: "/play",
-});
+export const SocketServer = new Server({ cors: { origin: "*", methods: "*" } });
 
 interface IPlayerScore {
   currentStreak: number;
@@ -17,213 +11,286 @@ interface IPlayerScore {
   username: string;
 }
 
-interface IGameMessage {
+interface GameMessage {
   username: string;
   msg: string;
   timeSent: string;
 }
 
-interface IGameDetails {
-  players: string[]; //their usernames
-  gameStatus: "not_started" | "started" | "finished";
-  currentPlayerTurn: string;
+interface GameDetails {
+  players: string[];
   currentPlayerScores: IPlayerScore[];
-  gameMessages: IGameMessage[];
+  currentPlayerTurn?: string;
   timerStarted: boolean;
-  timerStartedBy: string;
-  timerStoppedBy: string;
-  validCards: [];
+  timerStartedBy?: string;
+  timerStoppedBy?: string;
+  validCards: any[]; // Replace with your card type
+  gameMessages: GameMessage[];
 }
 
-//initial game details:
-let gameDetails: IGameDetails = {
-  players: [],
-  gameStatus: "not_started", //started, finished, not_started
-  currentPlayerTurn: "",
-  currentPlayerScores: [],
-  gameMessages: [],
-  timerStarted: false,
-  timerStartedBy: "",
-  timerStoppedBy: "",
-  validCards: [],
-};
+interface GameState {
+  roomID: string;
+  username?: string;
+  cardsChosen?: any[]; // Replace with your card type
+  player_score?: IPlayerScore;
+  validCardsRemaining?: any[]; // Replace with your card type
+  message?: string;
+  timeSent?: string;
+}
 
-//generate initial current room id:
-let currentRoomId = randomUUID();
+export class SocketRoomManager {
+  private readonly MAX_PLAYERS_PER_ROOM = 3;
+  private socketServer: Server;
+  private redisClient: typeof RedisClient;
 
-await RedisClient.set("currentRoomId", currentRoomId);
-
-//list of sockets
-let socketsList = [];
-
-await RedisClient.set(currentRoomId, JSON.stringify(socketsList));
-
-SocketServer.on("connection", async (socket) => {
-  //when user hits play button:
-
-  //get the current lobby/game id from cache
-  let currentLobby = await RedisClient.get("currentRoomId");
-
-  if (!currentLobby) {
-    return;
+  constructor(socketServer: Server, redisClient: typeof RedisClient) {
+    this.socketServer = socketServer;
+    this.redisClient = redisClient;
+    this.initializeRoom();
   }
 
-  let currentLobbyDetails: any = await RedisClient.get(currentLobby);
-
-  if (!currentLobbyDetails) {
-    return;
+  private async initializeRoom() {
+    await this.redisClient.set("currentRoomId", "1");
+    await this.redisClient.set("1", JSON.stringify([]));
   }
 
-  currentLobbyDetails = JSON.parse(currentLobbyDetails);
-
-  if (currentLobbyDetails.length <= 2) {
-    currentLobbyDetails.push(socket);
-  }
-
-  if (currentLobbyDetails.length > 2) {
-    currentLobbyDetails.push(socket);
-    //create room for all sockets
-    currentLobbyDetails.forEach(async (_socket) => {
-      await _socket.join(currentLobby);
-    });
-
-    //configure new lobby with empty game details
-    await RedisClient.set(currentLobby, JSON.stringify(gameDetails));
-
-    SocketServer.to(currentLobby).emit("gameStarting", {
-      roomID: currentLobby,
-    });
-
-    //create new currentRoomId
-    let newRoomId = randomUUID();
-    await RedisClient.set("currentRoomId", newRoomId);
-
-    //now to listen to game events from the client
-    socket.on("start game", async (msg) => {
-      //user supposed to submit username at this stage. shold also have room id submitted
-      const { username, roomID } = msg;
-      // get user's room
-      let roomDetails: any = await getRoomDetails(roomID);
-
-      roomDetails.players.push(username);
-
-      if (roomDetails.players.length == 3) {
-        roomDetails.currentPlayerTurn = roomDetails.players[0]; //start at 0 index
-        //initialize the player scorecards:
-        roomDetails.players.forEach((player) => {
-          let playerScoreCard: IPlayerScore = {
-            currentStreak: 0,
-            correctPairsMatched: 0,
-            misses: 0,
-            longestStreak: 0,
-            username: player,
-          };
-
-          roomDetails.currentPlayerScores.push(playerScoreCard);
-        });
+  public async handleConnection(socket: Socket) {
+    try {
+      const currentRoomId = await this.redisClient.get("currentRoomId");
+      if (!currentRoomId) {
+        console.error("No current room ID found");
+        return;
       }
 
-      await RedisClient.set(roomID, JSON.stringify(roomDetails));
-
-      return SocketServer.to(roomID).emit("game started", roomDetails);
-    });
-
-    socket.on("start timer", async (msg) => {
-      const { username, roomID } = msg;
-      let roomDetails: any = await getRoomDetails(roomID);
-
-      roomDetails.timerStarted = true;
-      roomDetails.timerStartedBy = username;
-
-      await RedisClient.set(roomID, JSON.stringify(roomDetails));
-
-      return SocketServer.to(roomID).emit("timer started", roomDetails);
-    });
-
-    socket.on("stop timer", async (msg) => {
-      const { username, roomID } = msg;
-      let roomDetails: any = await getRoomDetails(roomID);
-
-      roomDetails.timerStarted = false;
-      roomDetails.timerStoppedBy = username;
-
-      await RedisClient.set(roomID, JSON.stringify(roomDetails));
-
-      return SocketServer.to(roomID).emit("timer stopped", roomDetails);
-    });
-
-    socket.on("change turn", async (msg) => {
-      const { username, roomID, cardsChosen } = msg;
-      let roomDetails: any = await getRoomDetails(roomID);
-
-      //get index of current player:
-      const index = roomDetails.players.indexOf(username);
-
-      if (index < 2) {
-        let nextPlayerIndex = index + 1;
-        roomDetails.currentPlayerTurn = roomDetails.players[nextPlayerIndex];
-      } else {
-        roomDetails.currentPlayerTurn = roomDetails.players[0];
+      const roomDetailsStr = await this.redisClient.get(currentRoomId);
+      if (!roomDetailsStr) {
+        console.error(`No room details found for room ${currentRoomId}`);
+        return;
       }
 
-      await RedisClient.set(roomID, JSON.stringify(roomDetails));
+      const roomDetails: string[] = JSON.parse(roomDetailsStr);
 
-      return SocketServer.to(roomID).emit("turn changed", roomDetails, {
-        cardsChosen: cardsChosen,
-      });
-    });
+      if (roomDetails.length < this.MAX_PLAYERS_PER_ROOM) {
+        // Add player to current room
+        roomDetails.push(socket.id);
+        await this.redisClient.set(currentRoomId, JSON.stringify(roomDetails));
 
-    socket.on("matched cards", async (msg) => {
-      const {
-        username,
-        roomID,
-        player_score,
-        validCardsRemaining,
-        cardsChosen,
-      } = msg;
-      let roomDetails: any = await getRoomDetails(roomID);
+        console.log(
+          `Player ${socket.id} joined room ${currentRoomId}. Players: ${roomDetails.length}/${this.MAX_PLAYERS_PER_ROOM}`
+        );
 
-      //get user score card and update score
-      for (let i = 0; i < 3; i++) {
-        if (roomDetails.currentPlayerScores[i].username == username) {
-          roomDetails.currentPlayerScores[i] = player_score;
+        // If room is now full, start the game
+        if (roomDetails.length === this.MAX_PLAYERS_PER_ROOM) {
+          await this.startGame(currentRoomId, roomDetails);
         }
       }
 
-      roomDetails.validCards = validCardsRemaining;
+      this.setupGameEventListeners(socket);
+    } catch (error) {
+      console.error("Error handling socket connection:", error);
+    }
+  }
 
-      await RedisClient.set(roomID, JSON.stringify(roomDetails));
+  private async startGame(roomId: string, players: string[]) {
+    try {
+      // Join all sockets to the room
+      for (const playerId of players) {
+        const playerSocket = this.socketServer.sockets.sockets.get(playerId);
+        if (playerSocket) {
+          await playerSocket.join(roomId);
+        }
+      }
 
-      return SocketServer.to(roomID).emit("cards matched", roomDetails, {
-        cardsChosen: cardsChosen,
+      console.log(`Game started in room ${roomId}`);
+
+      // Initialize game details
+      const gameDetails: GameDetails = {
+        players: [],
+        currentPlayerScores: [],
+        timerStarted: false,
+        validCards: [],
+        gameMessages: [],
+      };
+
+      // Save game details to Redis
+      await this.redisClient.set(roomId, JSON.stringify(gameDetails));
+
+      // Notify all players in the room
+      this.socketServer.to(roomId).emit("gameStarting", {
+        roomId: roomId,
+        players: players,
       });
+
+      // Create new room for next group
+      const newRoomId = (parseInt(roomId) + 1).toString();
+      await this.redisClient.set("currentRoomId", newRoomId);
+      await this.redisClient.set(newRoomId, JSON.stringify([]));
+
+      console.log(`New room ${newRoomId} created and ready`);
+    } catch (error) {
+      console.error("Error starting game:", error);
+    }
+  }
+
+  private async getRoomDetails(roomId: string): Promise<GameDetails> {
+    const roomDetailsStr = await this.redisClient.get(roomId);
+    if (!roomDetailsStr) {
+      throw new Error(`No room details found for room ${roomId}`);
+    }
+    return JSON.parse(roomDetailsStr);
+  }
+
+  private setupGameEventListeners(socket: Socket) {
+    socket.on("start game", async (msg: GameState) => {
+      try {
+        const { username, roomID } = msg;
+
+        if (!username || !roomID) {
+          console.log("detais not provided");
+
+          return;
+        }
+
+        let roomDetails = await this.getRoomDetails(roomID);
+
+        roomDetails.players.push(username);
+
+        console.log(roomDetails);
+
+        if (roomDetails.players.length === this.MAX_PLAYERS_PER_ROOM) {
+          roomDetails.currentPlayerTurn = roomDetails.players[0];
+          //valid cards should be set as per the player at index 0 at this stage
+
+          // Initialize player scorecards
+          roomDetails.currentPlayerScores = roomDetails.players.map(
+            (player) => ({
+              currentStreak: 0,
+              correctPairsMatched: 0,
+              misses: 0,
+              longestStreak: 0,
+              username: player,
+            })
+          );
+
+          this.socketServer.to(roomID).emit("game started", roomDetails);
+        }
+
+        await this.redisClient.set(roomID, JSON.stringify(roomDetails));
+      } catch (error) {
+        console.error("Error in start game:", error);
+      }
     });
 
-    socket.on("send message", async (msg) => {
-      const { username, message, timeSent, roomID } = msg;
-      let roomDetails: any = await getRoomDetails(roomID);
+    socket.on("start timer", async (msg: GameState) => {
+      try {
+        const { username, roomID } = msg;
+        if (!username || !roomID) return;
 
-      roomDetails.gameMessages.push({ username, msg: message, timeSent });
+        let roomDetails = await this.getRoomDetails(roomID);
+        roomDetails.timerStarted = true;
+        roomDetails.timerStartedBy = username;
 
-      await RedisClient.set(roomID, JSON.stringify(roomDetails));
+        await this.redisClient.set(roomID, JSON.stringify(roomDetails));
+        this.socketServer.to(roomID).emit("timer started", roomDetails);
+      } catch (error) {
+        console.error("Error in start timer:", error);
+      }
+    });
 
-      return SocketServer.to(roomID).emit("message sent", roomDetails);
+    socket.on("stop timer", async (msg: GameState) => {
+      try {
+        const { username, roomID } = msg;
+        if (!username || !roomID) return;
+
+        let roomDetails = await this.getRoomDetails(roomID);
+        roomDetails.timerStarted = false;
+        roomDetails.timerStoppedBy = username;
+
+        await this.redisClient.set(roomID, JSON.stringify(roomDetails));
+        this.socketServer.to(roomID).emit("timer stopped", roomDetails);
+      } catch (error) {
+        console.error("Error in stop timer:", error);
+      }
+    });
+
+    socket.on("change turn", async (msg: GameState) => {
+      try {
+        const { username, roomID, cardsChosen } = msg;
+        if (!username || !roomID) return;
+
+        let roomDetails = await this.getRoomDetails(roomID);
+        const currentIndex = roomDetails.players.indexOf(username);
+
+        roomDetails.currentPlayerTurn =
+          roomDetails.players[currentIndex < 2 ? currentIndex + 1 : 0];
+
+        await this.redisClient.set(roomID, JSON.stringify(roomDetails));
+        this.socketServer
+          .to(roomID)
+          .emit("turn changed", roomDetails, { cardsChosen });
+      } catch (error) {
+        console.error("Error in change turn:", error);
+      }
+    });
+
+    socket.on("matched cards", async (msg: GameState) => {
+      try {
+        const {
+          username,
+          roomID,
+          player_score,
+          validCardsRemaining,
+          cardsChosen,
+        } = msg;
+        if (!username || !roomID) return;
+
+        let roomDetails = await this.getRoomDetails(roomID);
+
+        const playerIndex = roomDetails.currentPlayerScores.findIndex(
+          (score) => score.username === username
+        );
+
+        if (playerIndex !== -1 && player_score) {
+          roomDetails.currentPlayerScores[playerIndex] = player_score;
+        }
+
+        if (validCardsRemaining) {
+          roomDetails.validCards = validCardsRemaining;
+        }
+
+        await this.redisClient.set(roomID, JSON.stringify(roomDetails));
+        this.socketServer
+          .to(roomID)
+          .emit("cards matched", roomDetails, { cardsChosen });
+      } catch (error) {
+        console.error("Error in matched cards:", error);
+      }
+    });
+
+    socket.on("send message", async (msg: GameState) => {
+      try {
+        const { username, message, timeSent, roomID } = msg;
+        if (!username || !message || !timeSent || !roomID) return;
+
+        let roomDetails = await this.getRoomDetails(roomID);
+        roomDetails.gameMessages.push({
+          username,
+          msg: message,
+          timeSent,
+        });
+
+        await this.redisClient.set(roomID, JSON.stringify(roomDetails));
+        this.socketServer.to(roomID).emit("message sent", roomDetails);
+      } catch (error) {
+        console.error("Error in send message:", error);
+      }
     });
   }
+}
+
+// Usage example:
+const roomManager = new SocketRoomManager(SocketServer, RedisClient);
+
+SocketServer.on("connection", (socket: Socket) => {
+  roomManager.handleConnection(socket);
 });
-
-//events to listen to, and emit in socketio:
-
-//emitted by client, listen to on server: //will also be the same events emitted to the client side
-/**
- * gameStarted
- * gameFinished
- * timerStarted
- * timerPaused
- * currentPlayerInTurn
- * playerSelectedCards
- * playerMatchedCards
- * newChat
- *
- *
- */

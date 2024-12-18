@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { verify } from "jsonwebtoken";
 import { config } from "../config/config";
+import { log } from "console";
 
 export const validateToken = (
   req: Request,
@@ -22,10 +23,8 @@ export const validateToken = (
           .status(401)
           .json({ msg: "Unauthorized request!", success: false });
       } else {
-        
-        
         req.user = decoded?.user || decoded;
-       // req.activeBalance = decoded?.activeBalance;
+        // req.activeBalance = decoded?.activeBalance;
         next();
       }
     });

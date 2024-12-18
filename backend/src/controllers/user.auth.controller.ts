@@ -7,20 +7,6 @@ import { config } from "../config/config";
 import { Profile } from "../models/Profile";
 
 export const signUp = async (req: Request, res: Response) => {
-  const errors = validationResult(req);
-
-  if (!errors.isEmpty()) {
-    console.log(errors);
-    let _errors = errors.array().map((error) => {
-      return {
-        msg: error.msg,
-        field: error.param,
-        success: false,
-      };
-    })[0];
-    return res.status(400).json(_errors);
-  }
-
   try {
     const { username, email, password, confirm_password } = req.body;
 
@@ -93,36 +79,12 @@ export const signUp = async (req: Request, res: Response) => {
 };
 
 export const login = async (req: Request, res: Response) => {
-  const errors = validationResult(req);
-
-  if (!errors.isEmpty()) {
-    console.log(errors);
-    let _errors = errors.array().map((error) => {
-      return {
-        msg: error.msg,
-        field: error.param,
-        success: false,
-      };
-    })[0];
-    return res.status(400).json(_errors);
-  }
-
   let { password, email } = req.body;
 
   try {
-    let user;
+    let user = await User.findOne({ email }).select("password username");
 
-    if (!(await User.exists({ email }))) {
-      // throw error if user does not exist
-      return res.status(400).json({
-        msg: "User does not exist",
-        success: false,
-      });
-    }
-
-    user = await User.findOne({ email }).select("password username");
-
-    if (!(await Password.compare(user.password, password))) {
+    if (!user || !(await Password.compare(user.password, password))) {
       return res
         .status(400)
         .json({ msg: "Invalid credentials", success: false });
