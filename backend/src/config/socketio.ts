@@ -218,6 +218,8 @@ export class SocketRoomManager {
         const { username, roomID, cardsChosen } = msg;
         if (!username || !roomID) return;
 
+        console.log("change turn", msg);
+
         let roomDetails = await this.getRoomDetails(roomID);
         const currentIndex = roomDetails.players.indexOf(username);
 

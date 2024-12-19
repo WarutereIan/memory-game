@@ -28,6 +28,31 @@ const WaitingRoom: React.FC = () => {
 
   if (!socketConnected) {
     socketService.connect();
+
+    //load socket listener functions
+    socketService.onTurnChanged((gameDetails) => {
+      updateGameDetails(gameDetails);
+    });
+
+    socketService.onCardsMatched((gameDetails) => {
+      updateGameDetails(gameDetails);
+    });
+
+    socketService.onMessageSent((gameDetails) => {
+      updateGameDetails(gameDetails);
+    });
+
+    socketService.onTimerStarted((gameDetails) => {
+      updateGameDetails(gameDetails);
+    });
+
+    socketService.onTimerStopped((gameDetails) => {
+      updateGameDetails(gameDetails);
+    });
+
+    socketService.onMessageSent((gameDetails) => {
+      updateGameDetails(gameDetails);
+    });
     toggleSocketConnected(true);
   }
 
