@@ -1,35 +1,34 @@
-import React, { useEffect, useState } from "react";
-import { Users } from "lucide-react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Crown, User, Wifi, WifiOff } from "lucide-react";
 import { useGameStore } from "../store/gameStore";
 import { socketService } from "../services/socketService";
 import { useSocketConnectedStore } from "../store/socketStore";
+import { generateUsername } from "../utils/userUtils";
+import { createDeck } from "../utils/gameUtils";
+import { HomeButton } from "./ui/HomeButton";
 
 const WaitingRoom: React.FC = () => {
-  const [inputUsername, setInputUsername] = useState("");
+  const navigate = useNavigate();
   const { gameDetails, setUsername, updateGameDetails, updateGameStarted } =
     useGameStore();
   const { socketConnected, toggleSocketConnected } = useSocketConnectedStore();
 
-  const handleJoinGame = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputUsername.trim()) return;
+  const setupSocketListeners = () => {
+    socketService.onGameStarting(() => {
+      const username = generateUsername();
+      setUsername(username);
 
-    setUsername(inputUsername);
-    socketService.startGame(inputUsername);
+      const initialCards = createDeck("easy");
+      const initialValidCards = initialCards.map((card) => card.id);
+      socketService.startGame(username, initialValidCards);
+    });
+
     socketService.onGameStarted((gameDetails) => {
       updateGameDetails(gameDetails);
       updateGameStarted(true);
     });
-  };
 
-  /* if (gameStarted) {
-    //navigate to gameboard
-  } */
-
-  if (!socketConnected) {
-    socketService.connect();
-
-    //load socket listener functions
     socketService.onTurnChanged((gameDetails) => {
       updateGameDetails(gameDetails);
     });
@@ -49,55 +48,88 @@ const WaitingRoom: React.FC = () => {
     socketService.onTimerStopped((gameDetails) => {
       updateGameDetails(gameDetails);
     });
+  };
 
-    socketService.onMessageSent((gameDetails) => {
-      updateGameDetails(gameDetails);
-    });
+  if (!socketConnected) {
+    socketService.connect();
+    setupSocketListeners();
     toggleSocketConnected(true);
   }
 
-  return (
-    <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Users className="w-6 h-6" />
-        <h2 className="text-xl font-semibold">Waiting Room</h2>
-      </div>
+  if (gameDetails) {
+    navigate("/multiplayer/game");
+  }
 
-      {!gameDetails?.players.includes(inputUsername) ? (
-        <form onSubmit={handleJoinGame} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Username</label>
-            <input
-              type="text"
-              value={inputUsername}
-              onChange={(e) => setInputUsername(e.target.value)}
-              className="w-full px-3 py-2 rounded border"
-              placeholder="Enter your username"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+  return (
+    <div className="min-h-screen bg-rose-50/30 flex items-center justify-center px-4">
+      <HomeButton />
+      <div className="max-w-md w-full">
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl p-8 shadow-sm text-center">
+          <Crown className="w-12 h-12 text-rose-400 mx-auto mb-4" />
+          <h2 className="font-serif italic text-2xl text-rose-400 mb-2">
+            Finding Players
+          </h2>
+
+          <div
+            className={`flex items-center justify-center gap-2 mb-4 ${
+              socketConnected ? "text-green-500" : "text-red-500"
+            }`}
           >
-            Join Game
-          </button>
-        </form>
-      ) : (
-        <div className="space-y-4">
-          <p className="text-center">Waiting for other players...</p>
-          <div className="flex flex-col gap-2">
-            {gameDetails.players.map((player, index) => (
-              <div
-                key={player}
-                className="p-2 bg-gray-100 dark:bg-gray-700 rounded"
-              >
-                Player {index + 1}: {player}
-              </div>
-            ))}
+            {socketConnected ? (
+              <>
+                <Wifi className="w-4 h-4" />
+                <span className="text-sm italic">Connected</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-4 h-4" />
+                <span className="text-sm italic">Disconnected</span>
+              </>
+            )}
           </div>
+
+          {gameDetails ? (
+            <>
+              <div className="mb-6">
+                <p className="text-gray-600 italic">
+                  Players joined ({gameDetails.players.length}/2)
+                </p>
+                {gameDetails.players.length < 2 && (
+                  <p className="text-sm text-gray-500 italic mt-2">
+                    Waiting for more players to join...
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {gameDetails.players.map((player) => (
+                  <div
+                    key={player}
+                    className="bg-rose-50 rounded-lg p-3 flex items-center gap-2"
+                  >
+                    <User className="w-4 h-4 text-rose-400" />
+                    <span className="font-serif italic text-rose-400">
+                      {player}
+                    </span>
+                  </div>
+                ))}
+                {gameDetails.players.length < 2 && (
+                  <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-2">
+                    <div className="w-4 h-4" />
+                    <span className="font-serif italic text-gray-400">
+                      Waiting for players...
+                    </span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-rose-200 border-t-rose-400 rounded-full animate-spin" />
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

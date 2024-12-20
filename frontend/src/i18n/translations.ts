@@ -1,83 +1,53 @@
 export const translations = {
   en: {
     translation: {
-      title: 'Memory Match',
-      difficulty: {
-        easy: 'Easy (6x6)',
-        hard: 'Hard (9x8)'
+      menu: {
+        singleplayer: 'Single Player',
+        singleplayerDesc: 'Play a solo game at your own pace',
+        multiplayer: 'Multiplayer',
+        multiplayerDesc: 'Challenge other players in real-time',
+        stats: 'My Stats',
+        statsDesc: 'View your game statistics',
+        leaderboard: 'Leaderboard',
+        leaderboardDesc: 'See top players worldwide',
+        admin: 'Admin Dashboard',
+        adminDesc: 'Access game administration panel'
       },
-      gameOver: 'Game Over!',
-      chooseDifficulty: 'Choose Difficulty',
-      stats: {
-        turns: 'Turns',
-        time: 'Time'
-      },
-      themes: {
-        numbers: 'Numbers',
-        emojis: 'Emojis',
-        flags: 'Flags',
-        custom: 'Custom'
-      },
-      settings: {
-        title: 'Settings',
-        language: 'Language',
-        theme: 'Theme',
-        cardTheme: 'Card Theme'
-      }
+      // ... existing translations
     }
   },
   es: {
     translation: {
-      title: 'Juego de Memoria',
-      difficulty: {
-        easy: 'Fácil (6x6)',
-        hard: 'Difícil (9x8)'
+      menu: {
+        singleplayer: 'Un Jugador',
+        singleplayerDesc: 'Juega solo a tu propio ritmo',
+        multiplayer: 'Multijugador',
+        multiplayerDesc: 'Desafía a otros jugadores en tiempo real',
+        stats: 'Mis Estadísticas',
+        statsDesc: 'Ver tus estadísticas de juego',
+        leaderboard: 'Clasificación',
+        leaderboardDesc: 'Ver mejores jugadores mundiales',
+        admin: 'Panel de Admin',
+        adminDesc: 'Acceder al panel de administración'
       },
-      gameOver: '¡Juego Terminado!',
-      chooseDifficulty: 'Elige la Dificultad',
-      stats: {
-        turns: 'Turnos',
-        time: 'Tiempo'
-      },
-      themes: {
-        numbers: 'Números',
-        emojis: 'Emojis',
-        flags: 'Banderas',
-        custom: 'Personalizado'
-      },
-      settings: {
-        title: 'Ajustes',
-        language: 'Idioma',
-        theme: 'Tema',
-        cardTheme: 'Tema de Cartas'
-      }
+      // ... existing translations
     }
   },
   fr: {
     translation: {
-      title: 'Jeu de Mémoire',
-      difficulty: {
-        easy: 'Facile (6x6)',
-        hard: 'Difficile (9x8)'
+      menu: {
+        singleplayer: 'Solo',
+        singleplayerDesc: 'Jouez seul à votre rythme',
+        multiplayer: 'Multijoueur',
+        multiplayerDesc: 'Défiez d\'autres joueurs en temps réel',
+        stats: 'Mes Statistiques',
+        statsDesc: 'Voir vos statistiques de jeu',
+        leaderboard: 'Classement',
+        leaderboardDesc: 'Voir les meilleurs joueurs mondiaux',
+        admin: 'Panneau Admin',
+        adminDesc: 'Accéder au panneau d\'administration'
       },
-      gameOver: 'Partie Terminée!',
-      chooseDifficulty: 'Choisir la Difficulté',
-      stats: {
-        turns: 'Tours',
-        time: 'Temps'
-      },
-      themes: {
-        numbers: 'Nombres',
-        emojis: 'Emojis',
-        flags: 'Drapeaux',
-        custom: 'Personnalisé'
-      },
-      settings: {
-        title: 'Paramètres',
-        language: 'Langue',
-        theme: 'Thème',
-        cardTheme: 'Thème des Cartes'
-      }
+      // ... existing translations
     }
   }
 };

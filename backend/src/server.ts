@@ -33,6 +33,4 @@ httpServer.listen(config.PORT || 5000, () => {
   );
 });
 
-SocketServer.attach(httpServer);
-
 SocketServer.listen(5500);

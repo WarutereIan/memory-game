@@ -4,13 +4,17 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import { translations } from './translations';
 
 i18n
-  .use(LanguageDetector)
   .use(initReactI18next)
+  .use(LanguageDetector)
   .init({
     resources: translations,
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false
+    },
+    detection: {
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage']
     }
   });
 

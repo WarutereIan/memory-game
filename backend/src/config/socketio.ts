@@ -24,18 +24,23 @@ interface GameDetails {
   timerStarted: boolean;
   timerStartedBy?: string;
   timerStoppedBy?: string;
-  validCards: any[]; // Replace with your card type
+  validCards: any[];
   gameMessages: GameMessage[];
 }
 
 interface GameState {
   roomID: string;
   username?: string;
-  cardsChosen?: any[]; // Replace with your card type
+  cardsChosen?: any[];
   player_score?: IPlayerScore;
-  validCardsRemaining?: any[]; // Replace with your card type
+  validCardsRemaining?: any[];
   message?: string;
   timeSent?: string;
+}
+
+interface UserRoomMapping {
+  roomId: string;
+  joinTime: number;
 }
 
 export class SocketRoomManager {
@@ -52,6 +57,30 @@ export class SocketRoomManager {
   private async initializeRoom() {
     await this.redisClient.set("currentRoomId", "1");
     await this.redisClient.set("1", JSON.stringify([]));
+    // Initialize user-room mappings storage
+    await this.redisClient.set("userRoomMappings", JSON.stringify({}));
+  }
+
+  private async getUserRoom(userId: string): Promise<string | null> {
+    const mappingsStr = await this.redisClient.get("userRoomMappings");
+    if (!mappingsStr) return null;
+
+    const mappings: Record<string, UserRoomMapping> = JSON.parse(mappingsStr);
+    return mappings[userId]?.roomId || null;
+  }
+
+  private async setUserRoom(userId: string, roomId: string) {
+    const mappingsStr = await this.redisClient.get("userRoomMappings");
+    const mappings: Record<string, UserRoomMapping> = mappingsStr
+      ? JSON.parse(mappingsStr)
+      : {};
+
+    mappings[userId] = {
+      roomId,
+      joinTime: Date.now(),
+    };
+
+    await this.redisClient.set("userRoomMappings", JSON.stringify(mappings));
   }
 
   public async handleConnection(socket: Socket) {
@@ -61,6 +90,8 @@ export class SocketRoomManager {
         console.error("No current room ID found");
         return;
       }
+
+      //console.log(socket);
 
       const roomDetailsStr = await this.redisClient.get(currentRoomId);
       if (!roomDetailsStr) {
@@ -123,7 +154,11 @@ export class SocketRoomManager {
 
       // Create new room for next group
       const newRoomId = (parseInt(roomId) + 1).toString();
+      console.log("new room id", newRoomId);
+
       await this.redisClient.set("currentRoomId", newRoomId);
+
+      console.log(await this.redisClient.get("currentRoomId"));
       await this.redisClient.set(newRoomId, JSON.stringify([]));
 
       console.log(`New room ${newRoomId} created and ready`);
@@ -143,23 +178,45 @@ export class SocketRoomManager {
   private setupGameEventListeners(socket: Socket) {
     socket.on("start game", async (msg: GameState) => {
       try {
-        const { username, roomID } = msg;
+        const { username, roomID, validCardsRemaining } = msg;
 
-        if (!username || !roomID) {
-          console.log("detais not provided");
+        console.log(msg);
+        
 
+        if (!username || !roomID || !validCardsRemaining) {
+          console.log("details not provided");
+
+          return;
+        }
+
+        // Check if user already has a room assigned
+        const existingRoom = await this.getUserRoom(username);
+        if (existingRoom) {
+          // User is reconnecting to their existing room
+          await socket.join(existingRoom);
+          const roomDetails = await this.getRoomDetails(existingRoom);
+          socket.emit("reconnected", {
+            roomId: existingRoom,
+            gameState: roomDetails,
+          });
           return;
         }
 
         let roomDetails = await this.getRoomDetails(roomID);
 
-        roomDetails.players.push(username);
+        roomDetails.validCards = validCardsRemaining;
 
+        if (!roomDetails.players.includes(username)) {
+          roomDetails.players.push(username);
+          // Store the user-room mapping
+          await this.setUserRoom(username, roomID);
+          await socket.join(roomID);
+        }
         console.log(roomDetails);
+        console.log(`User ${username} joined/reconnected to room ${roomID}`);
 
         if (roomDetails.players.length === this.MAX_PLAYERS_PER_ROOM) {
           roomDetails.currentPlayerTurn = roomDetails.players[0];
-          //valid cards should be set as per the player at index 0 at this stage
 
           // Initialize player scorecards
           roomDetails.currentPlayerScores = roomDetails.players.map(
@@ -290,7 +347,6 @@ export class SocketRoomManager {
   }
 }
 
-// Usage example:
 const roomManager = new SocketRoomManager(SocketServer, RedisClient);
 
 SocketServer.on("connection", (socket: Socket) => {

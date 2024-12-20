@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
-import { SignUpData, AuthError } from '../../types/auth';
+import { SignUpData } from '../../types/auth';
 import { z } from 'zod';
 
 const signUpSchema = z.object({
@@ -19,7 +19,11 @@ const signUpSchema = z.object({
   path: ["confirm_password"],
 });
 
-const SignUpForm: React.FC = () => {
+interface SignUpFormProps {
+  onSuccess?: () => void;
+}
+
+const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess }) => {
   const [formData, setFormData] = useState<SignUpData>({
     username: '',
     email: '',
@@ -40,87 +44,85 @@ const SignUpForm: React.FC = () => {
         username: response._user.username,
         email: formData.email,
       });
+      onSuccess?.();
     } catch (err: any) {
       if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
         return;
       }
-      
-      const error: AuthError = err.response?.data || { 
-        msg: 'An error occurred',
-        success: false 
-      };
-      setError(error.msg);
+      setError(err.response?.data?.msg || 'An error occurred');
     }
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <UserPlus className="w-6 h-6" />
-        <h2 className="text-xl font-semibold">Sign Up</h2>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 bg-red-50 text-red-500 rounded-lg text-sm italic">
+          {error}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-serif italic mb-1 text-gray-600">
+          Username
+        </label>
+        <input
+          type="text"
+          value={formData.username}
+          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+          className="w-full px-4 py-2 rounded-lg border border-rose-200 focus:border-rose-400 outline-none"
+          required
+        />
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
-          <div className="p-3 bg-red-100 text-red-700 rounded">
-            {error}
-          </div>
-        )}
+      <div>
+        <label className="block text-sm font-serif italic mb-1 text-gray-600">
+          Email
+        </label>
+        <input
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          className="w-full px-4 py-2 rounded-lg border border-rose-200 focus:border-rose-400 outline-none"
+          required
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Username</label>
-          <input
-            type="text"
-            value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-            className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-            required
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-serif italic mb-1 text-gray-600">
+          Password
+        </label>
+        <input
+          type="password"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          className="w-full px-4 py-2 rounded-lg border border-rose-200 focus:border-rose-400 outline-none"
+          required
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-            required
-          />
-        </div>
+      <div>
+        <label className="block text-sm font-serif italic mb-1 text-gray-600">
+          Confirm Password
+        </label>
+        <input
+          type="password"
+          value={formData.confirm_password}
+          onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
+          className="w-full px-4 py-2 rounded-lg border border-rose-200 focus:border-rose-400 outline-none"
+          required
+        />
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
-          <input
-            type="password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Confirm Password</label>
-          <input
-            type="password"
-            value={formData.confirm_password}
-            onChange={(e) => setFormData({ ...formData, confirm_password: e.target.value })}
-            className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
-            required
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Sign Up
-        </button>
-      </form>
-    </div>
+      <button
+        type="submit"
+        className="w-full py-3 bg-rose-400 text-white rounded-lg hover:bg-rose-500 transition-colors flex items-center justify-center gap-2"
+      >
+        <UserPlus className="w-4 h-4" />
+        <span className="font-serif italic">Sign Up</span>
+      </button>
+    </form>
   );
 };
 
-export default SignUpForm;
+export default SignUpForm

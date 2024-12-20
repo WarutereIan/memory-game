@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { useGameStore } from '../store/gameStore';
-import { socketService } from '../services/socketService';
-import { MessageSquare } from 'lucide-react';
+import React, { useState } from "react";
+import { MessageSquare, Send } from "lucide-react";
+import { useGameStore } from "../store/gameStore";
+import { socketService } from "../services/socketService";
 
 const GameChat: React.FC = () => {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const { gameDetails, username } = useGameStore();
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -12,28 +12,28 @@ const GameChat: React.FC = () => {
     if (!message.trim()) return;
 
     socketService.sendMessage(username, message);
-    setMessage('');
+    setMessage("");
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 max-w-md">
-      <div className="flex items-center gap-2 mb-4">
-        <MessageSquare className="w-5 h-5" />
-        <h3 className="font-semibold">Game Chat</h3>
+    <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-rose-50 rounded-full text-rose-400">
+          <MessageSquare className="w-5 h-5" />
+        </div>
+        <h3 className="font-serif italic text-xl">Game Chat</h3>
       </div>
-      
-      <div className="h-48 overflow-y-auto mb-4 space-y-2">
+
+      <div className="h-48 overflow-y-auto mb-4 space-y-2 scrollbar-thin scrollbar-thumb-rose-200 scrollbar-track-transparent">
         {gameDetails?.gameMessages.map((msg, index) => (
           <div
             key={index}
-            className={`p-2 rounded ${
-              msg.username === username
-                ? 'bg-blue-100 dark:bg-blue-900 ml-8'
-                : 'bg-gray-100 dark:bg-gray-700 mr-8'
+            className={`p-3 rounded-lg ${
+              msg.username === username ? "bg-rose-50 ml-8" : "bg-gray-50 mr-8"
             }`}
           >
-            <p className="text-sm font-medium">{msg.username}</p>
-            <p className="text-sm">{msg.msg}</p>
+            <p className="text-sm font-serif italic mb-1">{msg.username}</p>
+            <p className="text-sm text-gray-600">{msg.msg}</p>
           </div>
         ))}
       </div>
@@ -43,14 +43,14 @@ const GameChat: React.FC = () => {
           type="text"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          className="flex-1 px-3 py-2 rounded border dark:bg-gray-700 dark:border-gray-600"
           placeholder="Type a message..."
+          className="flex-1 px-4 py-2 rounded-lg border border-rose-200 focus:border-rose-400 outline-none text-sm"
         />
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="p-2 bg-rose-400 text-white rounded-lg hover:bg-rose-500 transition-colors"
         >
-          Send
+          <Send className="w-5 h-5" />
         </button>
       </form>
     </div>

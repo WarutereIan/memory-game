@@ -14,7 +14,7 @@ export interface GameMessage {
 
 export interface GameDetails {
   players: string[];
-  gameStatus: 'not_started' | 'started' | 'finished';
+  gameStatus: "not_started" | "started" | "finished";
   currentPlayerTurn: string;
   currentPlayerScores: PlayerScore[];
   gameMessages: GameMessage[];
@@ -27,6 +27,7 @@ export interface GameDetails {
 export interface GameStartMessage {
   username: string;
   roomID: string;
+  validCardsRemaining: number[];
 }
 
 export interface TimerMessage {

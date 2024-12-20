@@ -2,7 +2,7 @@ import axios from "axios";
 import { GameResult, PlayerProfile, LeaderboardEntry } from "../types/stats";
 import { authService } from "./authService";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = `${import.meta.env.VITE_API_URL}/user`;
 
 class StatsService {
   private getHeaders() {

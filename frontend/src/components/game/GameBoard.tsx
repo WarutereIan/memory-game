@@ -1,169 +1,139 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
+import { Card } from "./Card";
+import { BottomTimer } from "./controls/BottomTimer";
+import { GameHeader } from "./GameHeader";
+import { GameOverModal } from "./GameOverModal";
+import GameChat from "../GameChat";
+import { CardTheme } from "../../types/game";
+import { useGameLogic } from "../../hooks/useGameLogic";
+import { useMultiplayerGameLogic } from "../../hooks/useMultiplayerGameLogic";
 import { useGameStore } from "../../store/gameStore";
-import { useAuthStore } from "../../store/authStore";
-import { statsService } from "../../services/statsService";
-import { socketService } from "../../services/socketService";
-import Card from "./Card";
-import GameStats from "./GameStats";
-import { createDeck } from "../../utils/gameUtils";
-import { Card as CardType } from "../../types/game";
+import { Trophy, Zap } from "lucide-react";
+import { HomeButton } from "../ui/HomeButton";
 
 const GameBoard: React.FC = () => {
-  const [cards, setCards] = useState<CardType[]>([]);
-  const [flippedCards, setFlippedCards] = useState<number[]>([]);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [isLocked, setIsLocked] = useState(false);
-  const [startTime, setStartTime] = useState<number>(Date.now());
-  const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const [gameStats, setGameStats] = useState({
-    turns: 0,
-    matches: 0,
-  });
+  const [theme, setTheme] = useState<CardTheme>("princess");
+  const location = useLocation();
+  const isMultiplayer = location.pathname.includes("multiplayer");
+  const { gameDetails } = useGameStore();
 
-  const { gameDetails, username } = useGameStore();
-  const isMultiplayer = !!gameDetails;
-  const isMyTurn = gameDetails?.currentPlayerTurn == username;
+  const {
+    cards,
+    handleCardClick,
+    isLocked,
+    isGameOver,
+    gameScore,
+    currentStreak,
+    handleTimeUp,
+    handleScoreMultiplierChange,
+    restartGame,
+  } = useGameLogic();
 
-  useEffect(() => {
-    console.log(isMyTurn);
-  }, [gameDetails]);
-
-  useEffect(() => {
-    const difficulty = isMultiplayer ? "hard" : "easy";
-    setCards(createDeck(difficulty));
-    setStartTime(Date.now());
-  }, [isMultiplayer]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsedTime(Date.now() - startTime);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [startTime]);
-
-  const handleCardClick = (cardId: number) => {
-    if (isLocked || (isMultiplayer && !isMyTurn)) return;
-
-    setCards((prev) =>
-      prev.map((card) =>
-        card.id === cardId ? { ...card, isFlipped: true } : card
-      )
-    );
-
-    setFlippedCards((prev) => [...prev, cardId]);
-
-    if (flippedCards.length === 1) {
-      setIsLocked(true);
-      const firstCard = cards.find((card) => card.id === flippedCards[0])!;
-      const secondCard = cards.find((card) => card.id === cardId)!;
-
-      setTimeout(() => {
-        if (firstCard.value === secondCard.value) {
-          //cards match
-          setCards((prev) =>
-            prev.map((card) =>
-              card.id === firstCard.id || card.id === secondCard.id
-                ? { ...card, isMatched: true }
-                : card
-            )
-          );
-          setCurrentStreak((prev) => prev + 1);
-          setGameStats((prev) => ({
-            ...prev,
-            matches: prev.matches + 1,
-          }));
-
-          if (isMultiplayer) {
-            socketService.matchedCards(
-              username,
-              {
-                username,
-                currentStreak: currentStreak + 1,
-                correctPairsMatched: gameStats.matches + 1,
-                misses: gameStats.turns - gameStats.matches,
-                longestStreak: currentStreak + 1,
-              },
-              cards.filter((card) => !card.isMatched).map((card) => card.id),
-              [firstCard.id, secondCard.id]
-            );
-          }
-        } else {
-          setCards((prev) =>
-            prev.map((card) =>
-              card.id === firstCard.id || card.id === secondCard.id
-                ? { ...card, isFlipped: false }
-                : card
-            )
-          );
-          setCurrentStreak(0);
-
-          if (isMultiplayer) {
-            socketService.changeTurn(username, [firstCard.id, secondCard.id]);
-          }
-        }
-
-        setFlippedCards([]);
-        setIsLocked(false);
-        setGameStats((prev) => ({ ...prev, turns: prev.turns + 1 }));
-
-        // Check for game end
-        const remainingCards = cards.filter((card) => !card.isMatched).length;
-        if (remainingCards === 2) {
-          handleGameEnd();
-        }
-      }, 1000);
-    }
-  };
-
-  const handleGameEnd = async () => {
-    const finalStats = {
-      ...gameStats,
-      endTime: Date.now(),
-      startTime,
-    };
-
-    const gameResult = {
-      numOfMatches: gameStats.matches,
-      numOfMisses: gameStats.turns - gameStats.matches,
-      longestStreak: currentStreak,
-      score: gameStats.turns,
-    };
-
-    try {
-      if (isMultiplayer) {
-        await statsService.postMultiPlayerResult(gameResult);
-      } else {
-        await statsService.postSinglePlayerResult(gameResult);
-      }
-    } catch (error) {
-      console.error("Failed to save game results:", error);
-    }
-  };
+  const {
+    handleCardClick: handleMultiplayerCardClick,
+    isCardFlipped,
+    isCardDisabled,
+    handleMultiplayerTimeUp,
+    handleMultiplayerScoreMultiplier,
+    currentScore,
+    currentPlayerStreak,
+  } = useMultiplayerGameLogic();
 
   return (
-    <div className="space-y-6">
-      <GameStats
-        turns={gameStats.turns}
-        matches={gameStats.matches}
-        currentStreak={currentStreak}
-        elapsedTime={elapsedTime}
+    <div className="min-h-screen bg-rose-50/30 px-4 py-8">
+      <HomeButton />
+      <GameHeader />
+
+      <div className="max-w-7xl mx-auto grid grid-cols-[300px_1fr] gap-6">
+        {/* Left Sidebar */}
+        <div className="space-y-6">
+          {/* Score Card */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Trophy className="w-4 h-4 text-rose-400" />
+                  <span className="text-sm text-gray-600">Score</span>
+                </div>
+                <p className="text-2xl font-medium">
+                  {isMultiplayer ? currentScore : gameScore.finalScore}
+                </p>
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-rose-400" />
+                  <span className="text-sm text-gray-600">Streak</span>
+                </div>
+                <p className="text-2xl font-medium">
+                  {isMultiplayer ? currentPlayerStreak : currentStreak}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Theme Selector */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl px-6 py-4 shadow-sm">
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as CardTheme)}
+              className="w-full p-2 rounded-lg border border-rose-200 focus:border-rose-400 outline-none font-serif italic"
+            >
+              <option value="princess">Princess Theme</option>
+              <option value="fantasy">Fantasy Theme</option>
+              <option value="nature">Nature Theme</option>
+            </select>
+          </div>
+
+          {isMultiplayer && <GameChat />}
+        </div>
+
+        {/* Game Grid */}
+        <div className="grid grid-cols-4 gap-4 justify-items-center">
+          {cards.map((card) => (
+            <Card
+              key={card.id}
+              card={{
+                ...card,
+                isFlipped: isMultiplayer
+                  ? isCardFlipped(card.id)
+                  : card.isFlipped,
+                isMatched: isMultiplayer
+                  ? !gameDetails?.validCards.includes(card.id)
+                  : card.isMatched,
+              }}
+              theme={theme}
+              onClick={() => {
+                if (isMultiplayer) {
+                  handleMultiplayerCardClick(card.id);
+                } else {
+                  handleCardClick(card.id);
+                }
+              }}
+              disabled={
+                isMultiplayer ? isCardDisabled() : isLocked || isGameOver
+              }
+            />
+          ))}
+        </div>
+      </div>
+
+      <BottomTimer
+        onTimeUp={isMultiplayer ? handleMultiplayerTimeUp : handleTimeUp}
+        onScoreMultiplierChange={
+          isMultiplayer
+            ? handleMultiplayerScoreMultiplier
+            : handleScoreMultiplierChange
+        }
       />
 
-      <div
-        className={`grid ${
-          isMultiplayer ? "grid-cols-9" : "grid-cols-6"
-        } gap-2 justify-items-center`}
-      >
-        {cards.map((card) => (
-          <Card
-            key={card.id}
-            card={card}
-            onClick={() => handleCardClick(card.id)}
-            disabled={isLocked || (isMultiplayer && !isMyTurn)}
-          />
-        ))}
-      </div>
+      {!isMultiplayer && (
+        <GameOverModal
+          isOpen={isGameOver}
+          score={gameScore.finalScore}
+          onRestart={restartGame}
+        />
+      )}
     </div>
   );
 };

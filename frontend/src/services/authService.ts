@@ -2,7 +2,7 @@ import axios from "axios";
 import { SignUpData, LoginData, AuthResponse } from "../types/auth";
 import { jwtDecode } from "jwt-decode";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = `${import.meta.env.VITE_API_URL}/user`;
 
 class AuthService {
   private token: string | null = null;
