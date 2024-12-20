@@ -1,7 +1,7 @@
 # Build stage
-FROM node:20-alpine as build
+FROM node:18-alpine as build
 
-# Set working directory
+# Create and set working directory
 WORKDIR /app
 
 # Copy package files
@@ -13,25 +13,24 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build the app
+# Ensure environment variables are available during build
 ARG VITE_API_URL
 ARG VITE_SOCKET_URL
+
+# Build the application
+
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy built assets from build stage
+# Copy the built assets from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create a script to replace environment variables at runtime
-COPY env.sh /docker-entrypoint.d/40-env.sh
-RUN chmod +x /docker-entrypoint.d/40-env.sh
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port
+# Expose port 80
 EXPOSE 80
 
 # Start nginx
