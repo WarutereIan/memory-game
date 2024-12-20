@@ -20,4 +20,4 @@ export const connectDB = async () => {
   }
 };
 
-export const RedisClient = new Redis();
+export const RedisClient = new Redis({ host: "redis", port: 6379 });
