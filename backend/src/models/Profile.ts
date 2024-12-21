@@ -14,7 +14,7 @@ const ProfileSchema = new Schema<IProfile>({
   highScoreSingleplayer: {
     type: Number,
     required: true,
-    default: 1000000, //initialize at a high number so that consequent high scores are what are lower than this number
+    default: 0, //initialize at a high number so that consequent high scores are what are lower than this number
   },
   longestStreakMultiplayer: {
     type: Number,

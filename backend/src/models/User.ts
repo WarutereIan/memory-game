@@ -16,49 +16,6 @@ const UserSchema = new Schema<IUser>({
     type: String,
     required: true,
   },
-  highScoreMultiplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  highScoreSingleplayer: {
-    type: Number,
-    required: true,
-    default: 1000000, //initialize at a high number so that consequent high scores are what are lower than this number
-  },
-  longestStreakMultiplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  longestStreakSingleplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  numOfGamesMultiplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  numOfGamesSingleplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  totalCardMatchesMultiplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  totalCardMatchesSingleplayer: {
-    type: Number,
-    required: true,
-    default: 0,
-  },
-  totalWinsMultiplayer: {},
-  totalCardMissesMultiplayer: {},
-  totalCardMissesSingleplayer:{}
 });
 
 //hooks
