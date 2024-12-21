@@ -25,6 +25,6 @@ router.post(
 
 router.get("/player/stats", validateRequest, validateToken, getPlayerStats);
 
-router.get("/leaderboard", validateRequest, validateToken, getLeaderBoard);
+router.get("/leaderboard", validateRequest, getLeaderBoard);
 
 module.exports = router;
